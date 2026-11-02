@@ -1,15 +1,6 @@
 import SwiftUI
 import KeyBarCore
 
-enum Palette {
-    static let ink = Color(red: 0.16, green: 0.18, blue: 0.17)
-    static let secondary = Color(red: 0.43, green: 0.45, blue: 0.43)
-    static let paper = Color(red: 0.97, green: 0.97, blue: 0.95)
-    static let sidebar = Color(red: 0.94, green: 0.94, blue: 0.91)
-    static let accent = Color(red: 0.78, green: 0.31, blue: 0.20)
-    static let line = Color.black.opacity(0.08)
-}
-
 extension Provider {
     var symbol: String {
         switch self {
@@ -20,26 +11,17 @@ extension Provider {
         case .openai: "circle.hexagongrid"
         }
     }
-    var tint: Color {
-        switch self {
-        case .custom: Palette.secondary
-        case .gemini: Color(red: 0.32, green: 0.44, blue: 0.72)
-        case .openrouter: Palette.ink
-        case .anthropic: Palette.accent
-        case .openai: Color(red: 0.25, green: 0.49, blue: 0.39)
-        }
-    }
 }
 
 struct ProviderIcon: View {
     let provider: Provider
-    var size: CGFloat = 38
+    var size: CGFloat = 32
     var body: some View {
         Image(systemName: provider.symbol)
-            .font(.system(size: size * 0.44, weight: .medium))
-            .foregroundStyle(provider.tint)
+            .font(.system(size: size * 0.45, weight: .medium))
+            .foregroundStyle(.secondary)
             .frame(width: size, height: size)
-            .background(provider.tint.opacity(0.08), in: RoundedRectangle(cornerRadius: size * 0.27))
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
             .accessibilityHidden(true)
     }
 }
@@ -49,10 +31,10 @@ struct StatusBadge: View {
     var checking = false
     private var color: Color {
         switch status {
-        case .valid: Color(red: 0.19, green: 0.48, blue: 0.32)
+        case .valid: .green
         case .invalid: .red
         case .restricted, .rateLimited: .orange
-        case .unchecked, .unavailable: Palette.secondary
+        case .unchecked, .unavailable: .secondary
         }
     }
     var body: some View {
@@ -61,30 +43,39 @@ struct StatusBadge: View {
             else { Circle().fill(color).frame(width: 6, height: 6) }
             Text(checking ? "Checking…" : status.label)
         }
-        .font(.system(size: 11, weight: .medium))
+        .font(.callout)
         .foregroundStyle(color)
-        .padding(.horizontal, 8).padding(.vertical, 5)
-        .background(color.opacity(0.07), in: Capsule())
         .accessibilityElement(children: .combine)
+        .help(checking ? "Checking access with the provider." : status.explanation)
+        .accessibilityHint(status.explanation)
     }
 }
 
-struct PrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .semibold))
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .foregroundStyle(.white)
-            .background(Palette.ink.opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.3), in: RoundedRectangle(cornerRadius: 9))
-    }
-}
-
-struct SectionCaption: View {
-    let title: String
+struct NativeActionGroup<Content: View>: View {
+    @ViewBuilder var content: () -> Content
     var body: some View {
-        Text(title.uppercased())
-            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-            .tracking(1.4).foregroundStyle(Palette.secondary)
+        if #available(macOS 26, *) {
+            GlassEffectContainer(spacing: 12) { content() }
+        } else { content() }
+    }
+}
+
+extension View {
+    @ViewBuilder func keybarPrimaryButton() -> some View {
+        if #available(macOS 26, *) { buttonStyle(.glassProminent) }
+        else { buttonStyle(.borderedProminent) }
+    }
+
+    @ViewBuilder func keybarGlassButton() -> some View {
+        if #available(macOS 26, *) { buttonStyle(.glass) }
+        else { buttonStyle(.bordered) }
+    }
+
+    @ViewBuilder func keybarDragSurface() -> some View {
+        if #available(macOS 26, *) {
+            glassEffect(.regular.interactive(), in: .capsule)
+        } else {
+            background(.regularMaterial, in: Capsule())
+        }
     }
 }

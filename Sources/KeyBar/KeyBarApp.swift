@@ -29,9 +29,9 @@ struct KeyBarApp: App {
         Window("KeyBar", id: "vault") {
             VaultView(store: store)
         }
-        .defaultSize(width: 800, height: 570)
+        .defaultSize(width: 700, height: 460)
         .windowResizability(.contentMinSize)
-        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(replacing: .newItem) { }
         }

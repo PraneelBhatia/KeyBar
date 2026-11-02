@@ -6,54 +6,51 @@ struct MenuPanel: View {
     let store: KeyStore
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "key.horizontal.fill").foregroundStyle(Palette.accent)
-                Text("KeyBar").font(.system(size: 18, weight: .semibold, design: .rounded))
+                Label(store.demo ? "KeyBar — Demo" : "KeyBar", systemImage: "key.horizontal")
+                    .font(.headline)
                 Spacer()
-                Text("\(store.records.count) keys").font(.system(size: 11)).foregroundStyle(Palette.secondary)
+                Text("\(store.records.count)").foregroundStyle(.secondary)
+                    .accessibilityLabel("\(store.records.count) keys")
             }
             if store.records.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("No API keys").font(.system(size: 16, weight: .semibold))
-                    Text("Open KeyBar to add a key.").font(.system(size: 12)).foregroundStyle(Palette.secondary)
-                }.padding(.vertical, 20)
+                Text("No API keys").foregroundStyle(.secondary).padding(.vertical)
             } else {
-                Text("Drag a key to share instructions with an agent.")
-                    .font(.system(size: 11)).foregroundStyle(Palette.secondary)
                 ScrollView {
-                    VStack(spacing: 7) {
+                    VStack(spacing: 4) {
                         ForEach(store.records) { record in
                             HStack(spacing: 10) {
-                                ProviderIcon(provider: record.provider, size: 30)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(record.name).font(.system(size: 12, weight: .semibold))
-                                    Text(record.variable).font(.system(size: 9, design: .monospaced)).foregroundStyle(Palette.secondary).lineLimit(1)
+                                ProviderIcon(provider: record.provider, size: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(record.name).lineLimit(1)
+                                    Text(record.variable).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                 }
-                                Spacer(minLength: 3)
-                                Button { store.copyInstructions(record) } label: { Image(systemName: "doc.on.doc") }
-                                    .buttonStyle(.plain).help("Copy instructions for \(record.name)")
-                                    .accessibilityLabel("Copy instructions for \(record.name)")
+                                Spacer(minLength: 4)
                                 StatusBadge(status: record.status, checking: store.checking.contains(record.id))
+                                Button("Copy instructions", systemImage: "doc.on.doc") { store.copyInstructions(record) }
+                                    .labelStyle(.iconOnly).buttonStyle(.borderless)
+                                    .help("Copy usage instructions for \(record.name), without the secret.")
                             }
-                            .padding(9).background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 8))
+                            .padding(.vertical, 8).padding(.horizontal, 4)
+                            .contentShape(Rectangle())
                             .draggable(store.handoff(record))
+                            .help("Drag to an agent to share usage instructions. The receiving command can read the key.")
                         }
                     }
-                }.frame(maxHeight: 290)
+                }.frame(height: min(CGFloat(store.records.count) * 60, 300))
             }
             Divider()
             HStack {
                 Button("Open KeyBar", systemImage: "arrow.up.right") {
                     openWindow(id: "vault")
                     NSApplication.shared.activate(ignoringOtherApps: true)
-                }.buttonStyle(.plain).font(.system(size: 12, weight: .medium))
+                }.keybarGlassButton()
                 Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Palette.secondary)
+                Button("Quit") { NSApplication.shared.terminate(nil) }.buttonStyle(.borderless)
             }
         }
-        .padding(20).frame(width: 390).background(Palette.paper).foregroundStyle(Palette.ink)
-        .preferredColorScheme(.light)
+        .padding(16).frame(width: 380)
         .onAppear { store.refresh() }
     }
 }

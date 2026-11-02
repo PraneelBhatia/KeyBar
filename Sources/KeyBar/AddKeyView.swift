@@ -20,65 +20,55 @@ struct AddKeyView: View {
         InputRules.validVariable(variable) && InputRules.validSecret(secret)
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 19) {
-            Text(replacing == nil ? "Add a key" : "Replace key")
-                .font(.system(size: 23, weight: .semibold))
-            Text("Stored in macOS Keychain under the variable name below.")
-                .font(.system(size: 12)).foregroundStyle(Palette.secondary)
-            VStack(alignment: .leading, spacing: 8) {
-                SectionCaption(title: "API key")
-                SecureField("Paste your key", text: $secret)
-                    .textFieldStyle(.roundedBorder).focused($secretFocused).privacySensitive()
+        VStack(spacing: 0) {
+            HStack {
+                Text(replacing == nil ? "Add key" : "Replace key").font(.headline)
+                Spacer()
+                Image(systemName: "lock.shield").foregroundStyle(.secondary)
+                    .help("Stored in local macOS Keychain. No sync.")
+                    .accessibilityLabel("Stored in local macOS Keychain")
+            }.padding(20)
+            Form {
+                SecureField("API key", text: $secret, prompt: Text("Paste key"))
+                    .focused($secretFocused).privacySensitive()
+                    .help("Paste a single API key. Its value stays in Keychain.")
                     .onChange(of: secret) {
                         guard !choseProvider, replacing == nil else { return }
-                        let guess = Provider.detect(secret: secret.trimmingCharacters(in: .whitespacesAndNewlines), variable: variable)
+                        let guess = Provider.detect(secret: secret, variable: variable)
                         if guess != .custom { applyProvider(guess) }
                     }
-            }
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionCaption(title: "Name")
-                    TextField("e.g. Personal", text: $name).textFieldStyle(.roundedBorder)
+                TextField("Name", text: $name, prompt: Text("Personal"))
+                Picker("Provider", selection: Binding(get: { provider }, set: {
+                    choseProvider = true
+                    applyProvider($0)
+                })) {
+                    ForEach(Provider.allCases) { Text($0.name).tag($0) }
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionCaption(title: "Provider")
-                    Picker("Provider", selection: $provider) {
-                        ForEach(Provider.allCases) { Text($0.name).tag($0) }
-                    }.labelsHidden().onChange(of: provider) { choseProvider = true; applyProvider(provider) }
-                }.frame(width: 165)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                SectionCaption(title: "Environment variable")
-                TextField("MY_API_KEY", text: $variable)
-                    .font(.system(size: 12, design: .monospaced)).textFieldStyle(.roundedBorder)
+                TextField("Variable", text: $variable, prompt: Text("MY_API_KEY"))
                     .disabled(replacing != nil)
-                Text("Use uppercase letters, numbers, and underscores.")
-                    .font(.system(size: 10)).foregroundStyle(Palette.secondary)
+                    .help("Uppercase letters, numbers, and underscores. Process-control names such as PATH are reserved.")
                 if !variable.isEmpty && !InputRules.validVariable(variable) {
-                    Text("Choose a valid, non-reserved variable name, such as SERVICE_TOKEN.")
-                        .font(.system(size: 10)).foregroundStyle(Palette.accent)
+                    Text("Use a name such as SERVICE_TOKEN.").font(.caption).foregroundStyle(.red)
+                }
+                if provider != .custom {
+                    Toggle("Check on save", isOn: $check)
+                        .help("Sends this key to \(provider.endpoint?.host ?? provider.name) to check access. No generation request.")
+                    if check {
+                        Text(provider.endpoint?.host ?? provider.name)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
-            if provider != .custom {
-                VStack(alignment: .leading, spacing: 7) {
-                    Toggle("Check this key when saving", isOn: $check).font(.system(size: 12))
-                    Text("Sends the key to \(provider.endpoint?.host ?? provider.name) to check access. No generation request is made.")
-                        .font(.system(size: 10)).foregroundStyle(Palette.secondary).fixedSize(horizontal: false, vertical: true)
-                }.padding(13).background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 9))
-            } else {
-                Text("This service has no checker yet. Your key can still be stored and used by agents.")
-                    .font(.system(size: 11)).foregroundStyle(Palette.secondary)
-            }
-            if let error { Text(error).font(.system(size: 11)).foregroundStyle(Palette.accent).fixedSize(horizontal: false, vertical: true) }
+            .formStyle(.grouped)
+            if let error { Text(error).font(.callout).foregroundStyle(.red).padding(.horizontal, 20) }
             HStack {
                 Button("Cancel") { secret = ""; dismiss() }.keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(check && provider != .custom ? "Save & check" : "Save key", action: save)
-                    .buttonStyle(PrimaryButtonStyle()).disabled(!canSave).keyboardShortcut(.defaultAction)
-            }.padding(.top, 5)
+                Button(check && provider != .custom ? "Save & check" : "Save", action: save)
+                    .keybarPrimaryButton().disabled(!canSave).keyboardShortcut(.defaultAction)
+            }.padding(20)
         }
-        .padding(30).frame(width: 455).background(Palette.paper).foregroundStyle(Palette.ink)
-        .tint(Palette.accent).preferredColorScheme(.light)
+        .frame(width: 420)
         .onAppear {
             if let replacing { name = replacing.name; variable = replacing.variable; provider = replacing.provider; choseProvider = true }
             secretFocused = true

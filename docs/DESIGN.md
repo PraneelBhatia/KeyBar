@@ -1,6 +1,6 @@
 # KeyBar v0.1 design
 
-A menu-bar panel lists keys and copies or drags agent instructions. A desktop window adds, checks, replaces, and removes keys. Use short, functional labels without slogans or hero sections. Status always has a text label as well as color.
+A menu-bar panel lists keys and copies or drags agent instructions. A desktop window adds, checks, replaces, and removes keys. Use native NavigationSplitView, List, Form, and toolbar controls with system typography and appearance. Keep the visible copy to labels and actions; put explanations in help tooltips and accessibility hints. Liquid Glass is used for actions on macOS 26+, with standard controls and materials on macOS 14–25. Status always has a text label as well as color.
 
 ## Data flow
 
