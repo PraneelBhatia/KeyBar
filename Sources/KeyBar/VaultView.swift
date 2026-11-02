@@ -85,7 +85,7 @@ struct VaultView: View {
                 if let deleting { store.delete(deleting) }
                 deleting = nil
             }
-        } message: { Text("Deletes the local Keychain item. The provider’s key stays active.") }
+        } message: { Text("Deletes the Keychain item. Exported .env files and running shells keep their values.") }
         .alert("KeyBar", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("OK") { store.error = nil }
         } message: { Text(store.error ?? "") }
@@ -99,7 +99,6 @@ struct VaultView: View {
 private struct KeyDetail: View {
     let store: KeyStore
     let record: KeyRecord
-    @State private var copied = false
     private var busy: Bool { store.checking.contains(record.id) }
 
     var body: some View {
@@ -140,28 +139,8 @@ private struct KeyDetail: View {
                         .help(checked.formatted(date: .abbreviated, time: .shortened))
                 }
             }
-            Section {
-                NativeActionGroup {
-                    HStack(spacing: 12) {
-                        Label("Drag to agent", systemImage: "hand.draw")
-                            .padding(.horizontal, 14).padding(.vertical, 9)
-                            .keybarDragSurface()
-                            .draggable(store.handoff(record))
-                            .help("Drag into a chat or AGENTS.md. Shares a command to use the key, never its value. The command and its children can read the key.")
-                            .accessibilityHint("Drag usage instructions to an agent. The receiving command can read the key.")
-                        Button(copied ? "Copied" : "Copy instructions", systemImage: copied ? "checkmark" : "doc.on.doc") {
-                            store.copyInstructions(record)
-                            copied = true
-                        }
-                        .keybarPrimaryButton()
-                        .help("Copy usage instructions without the secret. Give access only to agents you trust.")
-                    }
-                    .controlSize(.regular)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
+            AgentAccessView(store: store, record: record)
         }
         .formStyle(.grouped)
-        .onChange(of: record.id) { copied = false }
     }
 }

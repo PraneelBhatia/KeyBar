@@ -3,7 +3,7 @@ import AppKit
 import KeyBarCore
 
 struct MenuPanel: View {
-    let store: KeyStore
+    @Bindable var store: KeyStore
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -14,6 +14,10 @@ struct MenuPanel: View {
                 Text("\(store.records.count)").foregroundStyle(.secondary)
                     .accessibilityLabel("\(store.records.count) keys")
             }
+            Picker("Agent access", selection: $store.handoffMode) {
+                ForEach(HandoffMode.allCases) { Text($0.label).tag($0) }
+            }
+            .help("The copied or dragged note contains the selected access instructions, never a secret.")
             if store.records.isEmpty {
                 Text("No API keys").foregroundStyle(.secondary).padding(.vertical)
             } else {

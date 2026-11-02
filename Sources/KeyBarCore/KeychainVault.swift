@@ -17,8 +17,10 @@ public enum VaultError: LocalizedError {
 /// Metadata and secret live in the same local, non-syncing Keychain item.
 /// Listing returns attributes only; it never loads secret values.
 public struct KeychainVault: Sendable {
+    public static let defaultService = "app.keybar.vault.v1"
     private let service: String
-    public init(service: String = "app.keybar.vault.v1") { self.service = service }
+    public var serviceName: String { service }
+    public init(service: String = KeychainVault.defaultService) { self.service = service }
     private var base: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
          kSecAttrSynchronizable as String: false]

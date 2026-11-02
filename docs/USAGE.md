@@ -22,9 +22,26 @@ The agent receives a command like:
 '/path/to/KeyBar.app/Contents/MacOS/KeyBar' exec --key OPENROUTER_API_KEY -- python3 script.py
 ```
 
-KeyBar reads that one key from Keychain and launches the command with the variable in its environment. There is no shell setup, plaintext `.env`, or secret in the note. Multiple `--key` options are supported. To start a new terminal agent with access, use the same wrapper with its executable as the command. An existing session can use the wrapper to run a child command; dropping the note alone does not modify its environment.
+Keychain mode reads only the selected key and launches the command with the variable in its environment. This mode writes no secret file. The shared note never contains a secret. Multiple `--key` options are supported. To start a new terminal agent with access, use the same wrapper with its executable as the command. An existing session can use the wrapper to run a child command; dropping the note alone does not modify its environment.
 
 Use a program or SDK that reads the variable itself. Avoid interpolating a key into command-line arguments or using verbose HTTP/debug output.
+
+## Agent access
+
+Choose **Agent chooses**, **Keychain**, **.env**, or **.zshrc** before dragging or copying instructions. The menu-bar panel uses the same choice. Agent chooses includes commands for all three methods.
+
+- **Keychain:** runs a child command with only the selected stored keys added to its environment.
+- **.env:** writes one selected key to a project file. **Load key… → Load into .env…** opens a project-folder picker and asks before writing. Existing values for that variable are replaced after confirmation; unrelated entries are preserved. Files are written atomically with owner-only permissions (`0600`). The CLI requires `--replace` to overwrite an existing variable.
+- **.zshrc:** **Load key… → Enable in .zshrc…** adds a marked block that fetches the selected value from Keychain using `/usr/bin/security`. The profile contains a reference, not the secret. New interactive zsh sessions and their children receive the key; existing shells and desktop agent sessions do not. `ZDOTDIR` is honored when inherited by KeyBar; otherwise the app uses `~/.zshrc`. The CLI can target a custom `.zshrc` explicitly.
+
+```sh
+'/path/to/KeyBar.app/Contents/MacOS/KeyBar' env --key SERVICE_TOKEN --file .env
+'/path/to/KeyBar.app/Contents/MacOS/KeyBar' shell --key SERVICE_TOKEN --file "${ZDOTDIR:-$HOME}/.zshrc"
+```
+
+The `.env` export appends an ignore rule in the same directory and refuses already tracked files. Git must be available when exporting inside a repository. Symlinks, hard links, oversized files, duplicate target assignments, and ambiguous target multiline values are refused. Unrelated complete multiline values are preserved. Values with interpolation or escaping that varies across dotenv readers remain available through Keychain instead of being exported. Use your application's dotenv loader to load the resulting file.
+
+`.zshrc` setup is idempotent and preserves existing settings. It refuses an existing unmanaged assignment for the selected name or a syntactically invalid profile. Keychain may ask permission when the shell reads a key. Removing a stored key does not erase exported files, remove the shell reference, or clear running processes. Rotate at the provider if a value is exposed.
 
 ## What a check means
 

@@ -7,6 +7,7 @@ final class KeyStore {
     var records: [KeyRecord] = []
     var checking: Set<UUID> = []
     var error: String?
+    var handoffMode: HandoffMode = .choose
     let demo: Bool
     private let vault = KeychainVault()
 
@@ -68,10 +69,23 @@ final class KeyStore {
         catch { report(error) }
     }
     func report(_ error: Error) {
-        self.error = (error as? VaultError)?.errorDescription ?? "KeyBar could not complete the request. Please try again."
+        self.error = (error as? VaultError)?.errorDescription ?? (error as? EnvironmentFileError)?.errorDescription ?? "KeyBar could not complete the request. Please try again."
     }
     var executable: String { Bundle.main.executableURL?.path ?? CommandLine.arguments[0] }
-    func handoff(_ record: KeyRecord) -> String { InputRules.handoff(record, executable: executable) }
+    func handoff(_ record: KeyRecord) -> String { InputRules.handoff(record, executable: executable, mode: handoffMode) }
+    var shellProfile: URL {
+        let directory = ProcessInfo.processInfo.environment["ZDOTDIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        return directory.appendingPathComponent(".zshrc")
+    }
+    func loadDotenv(_ record: KeyRecord, to url: URL) throws {
+        guard !demo else { throw VaultError.invalidInput }
+        try EnvironmentFiles.writeDotenv(variable: record.variable, secret: vault.secret(for: record.variable), to: url, replace: true)
+    }
+    func enableShell(_ record: KeyRecord, at url: URL) throws {
+        guard !demo, try vault.list().contains(where: { $0.id == record.id }) else { throw VaultError.missing }
+        try EnvironmentFiles.enableShell(variable: record.variable, at: url)
+    }
     func copyInstructions(_ record: KeyRecord) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(handoff(record), forType: .string)

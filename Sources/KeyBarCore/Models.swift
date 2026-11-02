@@ -104,14 +104,4 @@ public enum InputRules {
     public static func shellQuote(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
     }
-    public static func handoff(_ record: KeyRecord, executable: String) -> String {
-        """
-        KeyBar provides the credential as \(record.variable) to a command you choose.
-        Run: \(shellQuote(executable)) exec --key \(record.variable) -- <command> [arguments]
-        Replace <command> with your executable (for example, python3 script.py).
-        The command and its children receive the environment variable from macOS Keychain.
-        Do not print, echo, log, dump the environment, or write the secret to chat or files.
-        This note contains no credential. Existing sessions do not gain the variable automatically.
-        """
-    }
 }
