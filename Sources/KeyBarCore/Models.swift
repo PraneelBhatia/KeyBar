@@ -5,7 +5,7 @@ public enum Provider: String, Codable, CaseIterable, Sendable, Identifiable {
     public var id: Self { self }
     public var name: String {
         switch self {
-        case .custom: "Other service"
+        case .custom: "Custom"
         case .gemini: "Gemini"
         case .openrouter: "OpenRouter"
         case .anthropic: "Anthropic"
@@ -71,16 +71,20 @@ public struct KeyRecord: Identifiable, Codable, Equatable, Sendable {
     public var name: String
     public var variable: String
     public var provider: Provider
+    public var customProviderID: UUID?
+    public var customProviderName: String?
+    public var providerName: String { provider == .custom ? customProviderName ?? provider.name : provider.name }
     public var addedAt: Date
     public var checkedAt: Date?
     public var status: KeyStatus
     public var remainingLimit: Double?
     public init(id: UUID = UUID(), name: String, variable: String, provider: Provider,
                 addedAt: Date = Date(), checkedAt: Date? = nil, status: KeyStatus = .unchecked,
-                remainingLimit: Double? = nil) {
+                remainingLimit: Double? = nil, customProviderID: UUID? = nil, customProviderName: String? = nil) {
         self.id = id; self.name = name; self.variable = variable; self.provider = provider
         self.addedAt = addedAt; self.checkedAt = checkedAt; self.status = status
         self.remainingLimit = remainingLimit
+        self.customProviderID = customProviderID; self.customProviderName = customProviderName
     }
 }
 

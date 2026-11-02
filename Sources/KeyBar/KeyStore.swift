@@ -5,11 +5,13 @@ import KeyBarCore
 @MainActor @Observable
 final class KeyStore {
     var records: [KeyRecord] = []
+    var customProviders: [CustomProvider] = []
     var checking: Set<UUID> = []
     var error: String?
     var handoffMode: HandoffMode = .choose
     let demo: Bool
     private let vault = KeychainVault()
+    private let providerCatalog = CustomProviderCatalog()
 
     init(demo: Bool = false) {
         self.demo = demo
@@ -28,15 +30,17 @@ final class KeyStore {
     }
     func refresh() {
         guard !demo else { return }
-        do { records = try vault.list() }
+        do { records = try vault.list(); customProviders = try providerCatalog.list() }
         catch { report(error) }
     }
     func save(name: String, variable: String, provider: Provider, secret: String,
-              replacing: KeyRecord?, check: Bool) throws -> UUID {
+              replacing: KeyRecord?, check: Bool, customProvider: CustomProvider? = nil) throws -> UUID {
         guard !demo else { throw VaultError.invalidInput }
         guard InputRules.validVariable(variable), InputRules.validSecret(secret),
               !name.isEmpty, name.count <= 80 else { throw VaultError.invalidInput }
-        var record = KeyRecord(name: name, variable: variable, provider: provider)
+        guard customProvider == nil || provider == .custom else { throw VaultError.invalidInput }
+        var record = KeyRecord(name: name, variable: variable, provider: provider,
+                               customProviderID: customProvider?.id, customProviderName: customProvider?.name)
         if let replacing {
             guard !checking.contains(replacing.id) else { throw VaultError.invalidInput }
             // Keep identity and variable on replacement; the added date becomes the rotation date.
@@ -68,8 +72,21 @@ final class KeyStore {
         do { try vault.delete(record.variable); refresh() }
         catch { report(error) }
     }
+    func addCustomProvider(name: String) throws -> CustomProvider {
+        guard !demo else { throw VaultError.invalidInput }
+        let provider = try providerCatalog.add(name: name)
+        customProviders = try providerCatalog.list()
+        return provider
+    }
+    func removeCustomProvider(_ provider: CustomProvider) {
+        guard !demo else { return }
+        do {
+            try providerCatalog.remove(id: provider.id)
+            customProviders = try providerCatalog.list()
+        } catch { report(error) }
+    }
     func report(_ error: Error) {
-        self.error = (error as? VaultError)?.errorDescription ?? (error as? EnvironmentFileError)?.errorDescription ?? "KeyBar could not complete the request. Please try again."
+        self.error = (error as? VaultError)?.errorDescription ?? (error as? EnvironmentFileError)?.errorDescription ?? (error as? CustomProviderError)?.errorDescription ?? "KeyBar could not complete the request. Please try again."
     }
     var executable: String { Bundle.main.executableURL?.path ?? CommandLine.arguments[0] }
     func handoff(_ record: KeyRecord) -> String { InputRules.handoff(record, executable: executable, mode: handoffMode) }

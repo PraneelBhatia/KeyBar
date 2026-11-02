@@ -14,7 +14,7 @@ Download the Apple silicon DMG from [Releases](https://github.com/PraneelBhatia/
 
 ## Use
 
-1. Add a key and its environment variable name.
+1. Add a key and its variable name. Choose **Custom…** to add your own provider.
 2. Check access, or save without checking.
 3. Drag a key into an agent chat, or copy its instructions. Choose Keychain, `.env`, `.zshrc`, or let the agent choose.
 

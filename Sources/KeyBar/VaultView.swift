@@ -6,12 +6,13 @@ struct VaultView: View {
     @State private var selection: UUID?
     @State private var search = ""
     @State private var showAdd = false
+    @State private var showProviders = false
     @State private var replacing: KeyRecord?
     @State private var deleting: KeyRecord?
     @Environment(\.scenePhase) private var scenePhase
 
     private var filtered: [KeyRecord] {
-        store.records.filter { search.isEmpty || "\($0.name) \($0.variable) \($0.provider.name)".localizedCaseInsensitiveContains(search) }
+        store.records.filter { search.isEmpty || "\($0.name) \($0.variable) \($0.providerName)".localizedCaseInsensitiveContains(search) }
     }
     private var selected: KeyRecord? { store.records.first { $0.id == selection } }
 
@@ -24,7 +25,7 @@ struct VaultView: View {
                             ProviderIcon(provider: record.provider)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(record.name).lineLimit(1)
-                                Text(record.provider.name).font(.caption).foregroundStyle(.secondary)
+                                Text(record.providerName).font(.caption).foregroundStyle(.secondary)
                             }
                         }
                         .tag(record.id)
@@ -35,7 +36,7 @@ struct VaultView: View {
             }
             .listStyle(.sidebar)
             .searchable(text: $search, prompt: "Find a key")
-            .navigationTitle(store.demo ? "KeyBar — Demo" : "KeyBar")
+            .navigationTitle(store.demo ? "KeyBar (Demo)" : "KeyBar")
             .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 280)
             .overlay {
                 if filtered.isEmpty && !search.isEmpty {
@@ -68,11 +69,14 @@ struct VaultView: View {
                         .disabled(selected == nil || store.demo || selected.map { store.checking.contains($0.id) } == true)
                     Button("Remove key…", role: .destructive) { deleting = selected }
                         .disabled(selected == nil || store.demo)
+                    Divider()
+                    Button("Custom providers…") { showProviders = true }
                 }
-                .help("Replace or remove the selected key")
+                .help("Manage keys and custom providers")
             }
         }
         .frame(minWidth: 620, minHeight: 420)
+        .sheet(isPresented: $showProviders) { CustomProvidersView(store: store) }
         .sheet(isPresented: $showAdd) {
             AddKeyView(store: store) { selection = $0 }
         }
@@ -108,7 +112,7 @@ private struct KeyDetail: View {
                     ProviderIcon(provider: record.provider, size: 40)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(record.name).font(.title2.weight(.semibold)).textSelection(.enabled)
-                        Text(record.provider.name).foregroundStyle(.secondary)
+                        Text(record.providerName).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
                 }
@@ -119,7 +123,7 @@ private struct KeyDetail: View {
                             Button("Check", systemImage: "arrow.clockwise") { Task { await store.check(record) } }
                                 .labelStyle(.iconOnly).buttonStyle(.borderless)
                                 .disabled(busy || store.demo)
-                                .help("Check access at \(record.provider.endpoint?.host ?? record.provider.name)")
+                                .help("Check access at \(record.provider.endpoint?.host ?? record.providerName)")
                         }
                     }
                 }

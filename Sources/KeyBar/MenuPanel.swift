@@ -8,7 +8,7 @@ struct MenuPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(store.demo ? "KeyBar — Demo" : "KeyBar", systemImage: "key.horizontal")
+                Label(store.demo ? "KeyBar (Demo)" : "KeyBar", systemImage: "key.horizontal")
                     .font(.headline)
                 Spacer()
                 Text("\(store.records.count)").foregroundStyle(.secondary)

@@ -12,8 +12,10 @@ open dist/KeyBar.app
 Move the app to Applications or keep it in this folder. Drag it to the Dock for quick access; it also has a menu-bar icon. **Move it before sharing instructions:** the note includes the app's current executable path.
 
 1. Click **Add a key**, paste a credential, give it a friendly name and an uppercase environment variable.
-2. Choose the provider. Recognizable prefixes suggest OpenRouter, Anthropic, or OpenAI. For Gemini, select Gemini explicitly: Google keys also serve other APIs. Any other API key works with **Other service**.
+2. Choose the provider. Recognizable prefixes suggest OpenRouter, Anthropic, or OpenAI. For Gemini, select Gemini explicitly: Google keys also serve other APIs. For any other API key, choose **Custom…**, enter a provider name in the form, and click **Add**. The provider is selected immediately and saved in the list for future keys.
 3. Save with or without a provider check. The form names the destination before sending a request.
+Custom provider names can be removed through **Manage custom providers…** in the provider picker or the window’s management menu. This removes the reusable choice, not its saved keys. Existing keys retain their provider label and remain usable. Custom providers do not send validation requests.
+
 4. Drag a key row or its agent card into a chat or `AGENTS.md`, or click **Copy instructions**. Only instructions are copied.
 
 The agent receives a command like:
@@ -51,7 +53,7 @@ The `.env` export appends an ignore rule in the same directory and refuses alrea
 | OpenRouter | `GET /api/v1/key` | Access and key-specific remaining limit, when reported |
 | Anthropic | `GET /v1/models` | Access accepted or failure status |
 | OpenAI | `GET /v1/models` | Access accepted or failure status |
-| Other service | No request | Stored, unchecked |
+| Custom | No request | Stored, unchecked |
 
 These checks do not generate tokens. A valid result confirms access to that endpoint at the time checked; it does not prove sufficient billing, every model permission, or future validity. Restricted access, rate limiting, and unavailable checks are distinct from invalid credentials. OpenRouter's key limit is not the account balance. **Added** is when this value was saved in KeyBar, not when the provider created it. Replacing a key resets that date and its check result.
 

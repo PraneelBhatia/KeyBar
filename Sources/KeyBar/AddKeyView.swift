@@ -9,16 +9,37 @@ struct AddKeyView: View {
     @State private var name = ""
     @State private var variable = ""
     @State private var secret = ""
-    @State private var provider: Provider = .custom
+    @State private var selection: ProviderSelection = .unspecified
     @State private var check = true
     @State private var error: String?
     @State private var choseProvider = false
+    @State private var showCustomProvider = false
+    @State private var showProviders = false
+    @State private var customName = ""
+    @FocusState private var customNameFocused: Bool
     @FocusState private var secretFocused: Bool
 
+    private enum ProviderSelection: Hashable {
+        case unspecified, builtin(Provider), named(UUID)
+    }
+    private var provider: Provider {
+        if case .builtin(let value) = selection { return value }
+        return .custom
+    }
+    private var customProvider: CustomProvider? {
+        guard case .named(let id) = selection else { return nil }
+        if let provider = store.customProviders.first(where: { $0.id == id }) { return provider }
+        if let replacing, replacing.customProviderID == id, let name = replacing.customProviderName {
+            return CustomProvider(id: id, name: name)
+        }
+        return nil
+    }
     private var canSave: Bool {
+        !showCustomProvider && !showProviders && selection != .unspecified &&
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 80 &&
         InputRules.validVariable(variable) && InputRules.validSecret(secret)
     }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -35,14 +56,19 @@ struct AddKeyView: View {
                     .onChange(of: secret) {
                         guard !choseProvider, replacing == nil else { return }
                         let guess = Provider.detect(secret: secret, variable: variable)
-                        if guess != .custom { applyProvider(guess) }
+                        if guess != .custom { applyProvider(.builtin(guess)) }
                     }
                 TextField("Name", text: $name, prompt: Text("Personal"))
-                Picker("Provider", selection: Binding(get: { provider }, set: {
-                    choseProvider = true
-                    applyProvider($0)
-                })) {
-                    ForEach(Provider.allCases) { Text($0.name).tag($0) }
+                providerPicker
+                if showCustomProvider { customProviderEditor }
+                if showProviders {
+                    Section {
+                        CustomProviderRows(store: store)
+                        HStack {
+                            Spacer()
+                            Button("Done") { showProviders = false }
+                        }
+                    } header: { Text("Custom providers") }
                 }
                 TextField("Variable", text: $variable, prompt: Text("MY_API_KEY"))
                     .disabled(replacing != nil)
@@ -70,21 +96,107 @@ struct AddKeyView: View {
         }
         .frame(width: 420)
         .onAppear {
-            if let replacing { name = replacing.name; variable = replacing.variable; provider = replacing.provider; choseProvider = true }
+            if let replacing {
+                name = replacing.name; variable = replacing.variable
+                if replacing.provider == .custom, let id = replacing.customProviderID, replacing.customProviderName != nil {
+                    selection = .named(id)
+                } else { selection = .builtin(replacing.provider) }
+                choseProvider = true
+            }
             secretFocused = true
+        }
+        .onChange(of: store.customProviders.map(\.id)) {
+            if case .named(let id) = selection,
+               !store.customProviders.contains(where: { $0.id == id }), replacing?.customProviderID != id {
+                selection = .unspecified
+            }
         }
         .onDisappear { secret = "" }
     }
-    private func applyProvider(_ value: Provider) {
-        let previousDefaults = Provider.allCases.map(\.variable)
-        if replacing == nil && (variable.isEmpty || previousDefaults.contains(variable)) { variable = value.variable }
-        provider = value
-        if name.isEmpty && value != .custom { name = value.name }
+
+    private var providerLabel: String {
+        switch selection {
+        case .unspecified: "Select provider"
+        case .builtin(let value): value.name
+        case .named: customProvider?.name ?? "Select provider"
+        }
     }
+
+    private var providerPicker: some View {
+        LabeledContent("Provider") {
+            Menu {
+                ForEach(Provider.allCases.filter { $0 != .custom }) { provider in
+                    Button(provider.name) { chooseProvider(.builtin(provider)) }
+                }
+                if replacing?.provider == .custom, replacing?.customProviderID == nil {
+                    Button("Custom") { chooseProvider(.builtin(.custom)) }
+                }
+                ForEach(store.customProviders) { provider in
+                    Button(provider.name) { chooseProvider(.named(provider.id)) }
+                }
+                if let replacing, let id = replacing.customProviderID, let name = replacing.customProviderName,
+                   !store.customProviders.contains(where: { $0.id == id }) {
+                    Button("\(name) (removed)") { chooseProvider(.named(id)) }
+                }
+                Divider()
+                Button("Custom…") {
+                    error = nil; customName = ""; showProviders = false; showCustomProvider = true
+                }
+                Button("Manage custom providers…") {
+                    error = nil; showCustomProvider = false; showProviders = true
+                }
+            } label: { Text(providerLabel) }
+            .menuStyle(.borderlessButton).fixedSize()
+            .accessibilityLabel("Provider")
+            .help("Custom adds a reusable provider name. Custom keys are stored without sending a check request.")
+        }
+    }
+
+    private var customProviderEditor: some View {
+        HStack {
+            TextField("Provider name", text: $customName, prompt: Text("e.g. Cloudflare"))
+                .focused($customNameFocused).onSubmit(addCustomProvider)
+                .help("A name for the provider list. Custom providers have no automatic key check.")
+            Button("Add", action: addCustomProvider)
+                .disabled((try? CustomProviderCatalog.normalizedName(customName)) == nil || store.demo)
+            Button("Cancel", systemImage: "xmark") { showCustomProvider = false; error = nil }
+                .labelStyle(.iconOnly).buttonStyle(.borderless)
+                .help("Cancel adding a provider")
+        }
+        .onAppear { customNameFocused = true }
+    }
+
+    private func chooseProvider(_ value: ProviderSelection) {
+        choseProvider = true; showCustomProvider = false; showProviders = false; error = nil
+        applyProvider(value)
+    }
+
+    private func addCustomProvider() {
+        do {
+            let provider = try store.addCustomProvider(name: customName)
+            chooseProvider(.named(provider.id))
+            if secret.isEmpty { secretFocused = true }
+        } catch {
+            self.error = (error as? CustomProviderError)?.errorDescription ?? "Could not add this provider."
+        }
+    }
+
+    private func applyProvider(_ value: ProviderSelection) {
+        let previousName = customProvider?.name ?? (provider == .custom ? "" : provider.name)
+        let previousVariable = customProvider?.variable
+        let defaults = Provider.allCases.map(\.variable) + store.customProviders.map(\.variable) + [previousVariable].compactMap { $0 }
+        selection = value
+        let suggestedName = customProvider?.name ?? (provider == .custom ? "" : provider.name)
+        let suggestedVariable = customProvider?.variable ?? provider.variable
+        if replacing == nil && (variable.isEmpty || defaults.contains(variable)) { variable = suggestedVariable }
+        if name.isEmpty || name == previousName { name = suggestedName }
+    }
+
     private func save() {
         do {
             let id = try store.save(name: name.trimmingCharacters(in: .whitespacesAndNewlines), variable: variable,
-                                    provider: provider, secret: secret, replacing: replacing, check: check && provider != .custom)
+                                    provider: provider, secret: secret, replacing: replacing, check: check && provider != .custom,
+                                    customProvider: customProvider)
             secret = ""; saved(id); dismiss()
         } catch { self.error = (error as? VaultError)?.errorDescription ?? "Could not save this key. Please try again." }
     }
