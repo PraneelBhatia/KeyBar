@@ -78,6 +78,21 @@ public struct CustomProviderCatalog {
         return provider
     }
 
+    @discardableResult public func rename(id: UUID, name: String) throws -> CustomProvider {
+        let normalized = try Self.normalizedName(name)
+        var providers = try list()
+        guard let index = providers.firstIndex(where: { $0.id == id }) else { throw CustomProviderError.corrupt }
+        let knownNames = Provider.allCases.map(\.name) + ["Other service", "Custom"]
+        guard !knownNames.contains(where: { Self.identity($0) == Self.identity(normalized) }),
+              !providers.contains(where: { $0.id != id && Self.identity($0.name) == Self.identity(normalized) }) else {
+            throw CustomProviderError.duplicate
+        }
+        let renamed = CustomProvider(id: id, name: normalized)
+        providers[index] = renamed
+        defaults.set(try JSONEncoder().encode(providers), forKey: key)
+        return renamed
+    }
+
     public func remove(id: UUID) throws {
         let providers = try list().filter { $0.id != id }
         defaults.set(try JSONEncoder().encode(providers), forKey: key)

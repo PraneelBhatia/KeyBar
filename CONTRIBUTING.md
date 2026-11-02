@@ -5,3 +5,5 @@ Keep KeyBar small. Prefer a clear failure state over guessed success. Never incl
 Run `./scripts/test.sh` and `./scripts/build-app.sh` before submitting changes. The test script supports both Xcode and Command Line Tools installations. For UI work, inspect the empty state, populated state (`--demo`), add form, keyboard navigation, and menu-bar panel. Test Keychain changes with a separate temporary service, never someone else's stored keys.
 
 To add a provider, extend `Provider`, add a fixed HTTPS endpoint and authentication header in `ProviderChecker`, and test request construction and response mapping with synthetic fixtures. Use a documented, non-generating authentication endpoint. Do not expose arbitrary URLs, redirects, or raw provider errors. Document what the check does and cannot establish.
+
+Keychain editing integration tests are opt-in: `KEYBAR_KEYCHAIN_TESTS=1 ./scripts/test.sh` on a Mac with an unlocked login Keychain. They use new isolated services, synthetic values, and remove their test items afterward. No existing credentials are read.

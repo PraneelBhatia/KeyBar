@@ -7,12 +7,12 @@ struct VaultView: View {
     @State private var search = ""
     @State private var showAdd = false
     @State private var showProviders = false
-    @State private var replacing: KeyRecord?
+    @State private var editing: KeyRecord?
     @State private var deleting: KeyRecord?
     @Environment(\.scenePhase) private var scenePhase
 
     private var filtered: [KeyRecord] {
-        store.records.filter { search.isEmpty || "\($0.name) \($0.variable) \($0.providerName)".localizedCaseInsensitiveContains(search) }
+        store.records.filter { search.isEmpty || "\($0.name) \($0.variable) \(store.providerName(for: $0))".localizedCaseInsensitiveContains(search) }
     }
     private var selected: KeyRecord? { store.records.first { $0.id == selection } }
 
@@ -25,7 +25,7 @@ struct VaultView: View {
                             ProviderIcon(provider: record.provider)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(record.name).lineLimit(1)
-                                Text(record.providerName).font(.caption).foregroundStyle(.secondary)
+                                Text(store.providerName(for: record)).font(.caption).foregroundStyle(.secondary)
                             }
                         }
                         .tag(record.id)
@@ -64,9 +64,14 @@ struct VaultView: View {
                     .help("Add an API key (⌘N)")
             }
             ToolbarItem(placement: .primaryAction) {
+                Button("Edit key", systemImage: "pencil") { editing = selected }
+                    .disabled(selected == nil || selected.map { store.checking.contains($0.id) } == true)
+                    .help("Edit name, provider, variable, or API key")
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Menu("Manage key", systemImage: "ellipsis") {
-                    Button("Replace key…") { replacing = selected }
-                        .disabled(selected == nil || store.demo || selected.map { store.checking.contains($0.id) } == true)
+                    Button("Edit key…") { editing = selected }
+                        .disabled(selected == nil || selected.map { store.checking.contains($0.id) } == true)
                     Button("Remove key…", role: .destructive) { deleting = selected }
                         .disabled(selected == nil || store.demo)
                     Divider()
@@ -80,8 +85,8 @@ struct VaultView: View {
         .sheet(isPresented: $showAdd) {
             AddKeyView(store: store) { selection = $0 }
         }
-        .sheet(item: $replacing) { record in
-            AddKeyView(store: store, replacing: record) { selection = $0 }
+        .sheet(item: $editing) { record in
+            AddKeyView(store: store, editing: record) { selection = $0 }
         }
         .confirmationDialog("Remove this key?", isPresented: Binding(
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
@@ -112,7 +117,7 @@ private struct KeyDetail: View {
                     ProviderIcon(provider: record.provider, size: 40)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(record.name).font(.title2.weight(.semibold)).textSelection(.enabled)
-                        Text(record.providerName).foregroundStyle(.secondary)
+                        Text(store.providerName(for: record)).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
                 }

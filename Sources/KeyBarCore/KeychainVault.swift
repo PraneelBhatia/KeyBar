@@ -2,13 +2,14 @@ import Foundation
 import Security
 
 public enum VaultError: LocalizedError {
-    case keychain(OSStatus), corrupt, duplicate, missing, invalidInput
+    case keychain(OSStatus), corrupt, duplicate, missing, invalidInput, stale
     public var errorDescription: String? {
         switch self {
         case .keychain(let code): "Keychain could not complete the request (\(code)). Unlock your login Keychain and try again."
         case .corrupt: "A KeyBar item could not be read. Check it in Keychain Access."
         case .duplicate: "That variable already exists. Choose another name or replace the existing key."
         case .missing: "This key is no longer in Keychain. Refresh KeyBar and try again."
+        case .stale: "This key changed while the editor was open. Reopen it and try again."
         case .invalidInput: "Use a non-reserved uppercase variable name and a single key without whitespace."
         }
     }
@@ -69,15 +70,22 @@ public struct KeychainVault: Sendable {
         guard let data = result as? Data, let value = String(data: data, encoding: .utf8) else { throw VaultError.corrupt }
         return value
     }
-    public func update(_ record: KeyRecord, secret: String? = nil) throws {
+    public func update(_ record: KeyRecord, secret: String? = nil, original: KeyRecord? = nil) throws {
         guard InputRules.validVariable(record.variable) else { throw VaultError.invalidInput }
-        var changes: [String: Any] = [kSecAttrGeneric as String: try JSONEncoder().encode(record),
+        if let original {
+            guard original.id == record.id,
+                  let current = try list().first(where: { $0.variable == original.variable }),
+                  current == original else { throw VaultError.stale }
+        }
+        var changes: [String: Any] = [kSecAttrAccount as String: record.variable,
+                                      kSecAttrGeneric as String: try JSONEncoder().encode(record),
                                       kSecAttrLabel as String: "KeyBar · \(record.name)"]
         if let secret {
             guard InputRules.validSecret(secret) else { throw VaultError.invalidInput }
             changes[kSecValueData as String] = Data(secret.utf8)
         }
-        let status = SecItemUpdate(query(record.variable) as CFDictionary, changes as CFDictionary)
+        let status = SecItemUpdate(query(original?.variable ?? record.variable) as CFDictionary, changes as CFDictionary)
+        if status == errSecDuplicateItem { throw VaultError.duplicate }
         if status == errSecItemNotFound { throw VaultError.missing }
         guard status == errSecSuccess else { throw VaultError.keychain(status) }
     }

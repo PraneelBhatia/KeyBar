@@ -15,7 +15,7 @@ Download the Apple silicon DMG from [Releases](https://github.com/PraneelBhatia/
 ## Use
 
 1. Add a key and its variable name. Choose **Custom…** to add your own provider.
-2. Check access, or save without checking.
+2. Check access, or save without checking. Use the pencil button to edit saved fields; leave the key blank to keep its value.
 3. Drag a key into an agent chat, or copy its instructions. Choose Keychain, `.env`, `.zshrc`, or let the agent choose.
 
 The note contains commands, never the key. **Load key…** writes a selected key into a project’s `.env` or adds a Keychain reference to `.zshrc` for new shells. `.env` is plain text; KeyBar adds it to `.gitignore` and refuses files already tracked by Git.

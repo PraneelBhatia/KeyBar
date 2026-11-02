@@ -3,7 +3,7 @@ import KeyBarCore
 
 struct AddKeyView: View {
     let store: KeyStore
-    var replacing: KeyRecord?
+    var editing: KeyRecord?
     let saved: (UUID) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -18,6 +18,7 @@ struct AddKeyView: View {
     @State private var customName = ""
     @FocusState private var customNameFocused: Bool
     @FocusState private var secretFocused: Bool
+    @FocusState private var nameFocused: Bool
 
     private enum ProviderSelection: Hashable {
         case unspecified, builtin(Provider), named(UUID)
@@ -29,7 +30,7 @@ struct AddKeyView: View {
     private var customProvider: CustomProvider? {
         guard case .named(let id) = selection else { return nil }
         if let provider = store.customProviders.first(where: { $0.id == id }) { return provider }
-        if let replacing, replacing.customProviderID == id, let name = replacing.customProviderName {
+        if let editing, editing.customProviderID == id, let name = editing.customProviderName {
             return CustomProvider(id: id, name: name)
         }
         return nil
@@ -37,28 +38,29 @@ struct AddKeyView: View {
     private var canSave: Bool {
         !showCustomProvider && !showProviders && selection != .unspecified &&
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 80 &&
-        InputRules.validVariable(variable) && InputRules.validSecret(secret)
+        InputRules.validVariable(variable) && ((editing != nil && secret.isEmpty) || InputRules.validSecret(secret))
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(replacing == nil ? "Add key" : "Replace key").font(.headline)
+                Text(editing == nil ? "Add key" : "Edit key").font(.headline)
                 Spacer()
                 Image(systemName: "lock.shield").foregroundStyle(.secondary)
                     .help("Stored in local macOS Keychain. No sync.")
                     .accessibilityLabel("Stored in local macOS Keychain")
             }.padding(20)
             Form {
-                SecureField("API key", text: $secret, prompt: Text("Paste key"))
+                SecureField("API key", text: $secret, prompt: Text(editing == nil ? "Paste key" : "Leave unchanged"))
                     .focused($secretFocused).privacySensitive()
-                    .help("Paste a single API key. Its value stays in Keychain.")
+                    .disabled(store.demo)
+                    .help(editing == nil ? "Paste a single API key. Its value stays in Keychain." : "Leave blank to keep the stored key, or paste a new key to replace it.")
                     .onChange(of: secret) {
-                        guard !choseProvider, replacing == nil else { return }
+                        guard !choseProvider, editing == nil else { return }
                         let guess = Provider.detect(secret: secret, variable: variable)
                         if guess != .custom { applyProvider(.builtin(guess)) }
                     }
-                TextField("Name", text: $name, prompt: Text("Personal"))
+                TextField("Name", text: $name, prompt: Text("Personal")).focused($nameFocused)
                 providerPicker
                 if showCustomProvider { customProviderEditor }
                 if showProviders {
@@ -71,13 +73,16 @@ struct AddKeyView: View {
                     } header: { Text("Custom providers") }
                 }
                 TextField("Variable", text: $variable, prompt: Text("MY_API_KEY"))
-                    .disabled(replacing != nil)
                     .help("Uppercase letters, numbers, and underscores. Process-control names such as PATH are reserved.")
+                if let editing, variable != editing.variable {
+                    Text("Copy new instructions and reload exports after renaming.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 if !variable.isEmpty && !InputRules.validVariable(variable) {
                     Text("Use a name such as SERVICE_TOKEN.").font(.caption).foregroundStyle(.red)
                 }
                 if provider != .custom {
-                    Toggle("Check on save", isOn: $check)
+                    Toggle("Check on save", isOn: $check).disabled(store.demo)
                         .help("Sends this key to \(provider.endpoint?.host ?? provider.name) to check access. No generation request.")
                     if check {
                         Text(provider.endpoint?.host ?? provider.name)
@@ -95,19 +100,19 @@ struct AddKeyView: View {
             }.padding(20)
         }
         .frame(width: 420)
+        // Draft fields are seeded from metadata; the stored secret is never loaded into the editor.
         .onAppear {
-            if let replacing {
-                name = replacing.name; variable = replacing.variable
-                if replacing.provider == .custom, let id = replacing.customProviderID, replacing.customProviderName != nil {
+            if let editing {
+                name = editing.name; variable = editing.variable
+                if editing.provider == .custom, let id = editing.customProviderID, editing.customProviderName != nil {
                     selection = .named(id)
-                } else { selection = .builtin(replacing.provider) }
-                choseProvider = true
-            }
-            secretFocused = true
+                } else { selection = .builtin(editing.provider) }
+                choseProvider = true; check = false; nameFocused = true
+            } else { secretFocused = true }
         }
         .onChange(of: store.customProviders.map(\.id)) {
             if case .named(let id) = selection,
-               !store.customProviders.contains(where: { $0.id == id }), replacing?.customProviderID != id {
+               !store.customProviders.contains(where: { $0.id == id }), editing?.customProviderID != id {
                 selection = .unspecified
             }
         }
@@ -128,13 +133,13 @@ struct AddKeyView: View {
                 ForEach(Provider.allCases.filter { $0 != .custom }) { provider in
                     Button(provider.name) { chooseProvider(.builtin(provider)) }
                 }
-                if replacing?.provider == .custom, replacing?.customProviderID == nil {
+                if editing?.provider == .custom, editing?.customProviderID == nil {
                     Button("Custom") { chooseProvider(.builtin(.custom)) }
                 }
                 ForEach(store.customProviders) { provider in
                     Button(provider.name) { chooseProvider(.named(provider.id)) }
                 }
-                if let replacing, let id = replacing.customProviderID, let name = replacing.customProviderName,
+                if let editing, let id = editing.customProviderID, let name = editing.customProviderName,
                    !store.customProviders.contains(where: { $0.id == id }) {
                     Button("\(name) (removed)") { chooseProvider(.named(id)) }
                 }
@@ -188,14 +193,14 @@ struct AddKeyView: View {
         selection = value
         let suggestedName = customProvider?.name ?? (provider == .custom ? "" : provider.name)
         let suggestedVariable = customProvider?.variable ?? provider.variable
-        if replacing == nil && (variable.isEmpty || defaults.contains(variable)) { variable = suggestedVariable }
+        if editing == nil && (variable.isEmpty || defaults.contains(variable)) { variable = suggestedVariable }
         if name.isEmpty || name == previousName { name = suggestedName }
     }
 
     private func save() {
         do {
             let id = try store.save(name: name.trimmingCharacters(in: .whitespacesAndNewlines), variable: variable,
-                                    provider: provider, secret: secret, replacing: replacing, check: check && provider != .custom,
+                                    provider: provider, secret: secret, replacing: editing, check: check && provider != .custom,
                                     customProvider: customProvider)
             secret = ""; saved(id); dismiss()
         } catch { self.error = (error as? VaultError)?.errorDescription ?? "Could not save this key. Please try again." }

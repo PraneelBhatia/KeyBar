@@ -71,6 +71,7 @@ struct AgentAccessView: View {
             Button("Cancel", role: .cancel) { pending = nil }
         } message: { Text(pending?.message ?? "") }
         .onChange(of: record.id) { copied = false; completed = nil; pending = nil }
+        .onChange(of: record.variable) { copied = false; completed = nil; pending = nil }
         .onChange(of: store.handoffMode) { copied = false }
     }
 

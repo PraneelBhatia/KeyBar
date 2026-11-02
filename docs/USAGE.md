@@ -14,7 +14,7 @@ Move the app to Applications or keep it in this folder. Drag it to the Dock for 
 1. Click **Add a key**, paste a credential, give it a friendly name and an uppercase environment variable.
 2. Choose the provider. Recognizable prefixes suggest OpenRouter, Anthropic, or OpenAI. For Gemini, select Gemini explicitly: Google keys also serve other APIs. For any other API key, choose **Custom…**, enter a provider name in the form, and click **Add**. The provider is selected immediately and saved in the list for future keys.
 3. Save with or without a provider check. The form names the destination before sending a request.
-Custom provider names can be removed through **Manage custom providers…** in the provider picker or the window’s management menu. This removes the reusable choice, not its saved keys. Existing keys retain their provider label and remain usable. Custom providers do not send validation requests.
+Custom provider names can be renamed with the pencil or removed through **Manage custom providers…** in the provider picker or the window’s management menu. This removes the reusable choice, not its saved keys. Existing keys retain their provider label and remain usable. Custom providers do not send validation requests.
 
 4. Drag a key row or its agent card into a chat or `AGENTS.md`, or click **Copy instructions**. Only instructions are copied.
 
@@ -27,6 +27,16 @@ The agent receives a command like:
 Keychain mode reads only the selected key and launches the command with the variable in its environment. This mode writes no secret file. The shared note never contains a secret. Multiple `--key` options are supported. To start a new terminal agent with access, use the same wrapper with its executable as the command. An existing session can use the wrapper to run a child command; dropping the note alone does not modify its environment.
 
 Use a program or SDK that reads the variable itself. Avoid interpolating a key into command-line arguments or using verbose HTTP/debug output.
+
+## Edit a saved key
+
+Select a key and click the pencil, or choose **Edit key…** from its management menu. Name, provider, and variable are editable. The API key field stays empty: leave it blank to preserve the stored value, or paste a new value to replace it.
+
+Name and variable edits preserve the key's added date and check result. Changing the provider clears the previous check result. Replacing the secret resets the added date and check state. Check on save is off by default when editing.
+
+A variable rename updates the existing Keychain item without reading its secret or deleting the item. Duplicate variable names are refused without overwriting either key. After renaming, copy fresh agent instructions and reload any .env or .zshrc exports; existing files and running processes keep their previous names and values.
+
+Custom provider names can also be edited under **Custom providers…**. Linked keys show the current provider name. Removing a renamed provider preserves its latest label on its saved keys.
 
 ## Agent access
 

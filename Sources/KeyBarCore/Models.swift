@@ -71,6 +71,7 @@ public struct KeyRecord: Identifiable, Codable, Equatable, Sendable {
     public var name: String
     public var variable: String
     public var provider: Provider
+    public var revision: UUID?
     public var customProviderID: UUID?
     public var customProviderName: String?
     public var providerName: String { provider == .custom ? customProviderName ?? provider.name : provider.name }
@@ -80,10 +81,11 @@ public struct KeyRecord: Identifiable, Codable, Equatable, Sendable {
     public var remainingLimit: Double?
     public init(id: UUID = UUID(), name: String, variable: String, provider: Provider,
                 addedAt: Date = Date(), checkedAt: Date? = nil, status: KeyStatus = .unchecked,
-                remainingLimit: Double? = nil, customProviderID: UUID? = nil, customProviderName: String? = nil) {
+                remainingLimit: Double? = nil, customProviderID: UUID? = nil, customProviderName: String? = nil, revision: UUID? = nil) {
         self.id = id; self.name = name; self.variable = variable; self.provider = provider
         self.addedAt = addedAt; self.checkedAt = checkedAt; self.status = status
         self.remainingLimit = remainingLimit
+        self.revision = revision
         self.customProviderID = customProviderID; self.customProviderName = customProviderName
     }
 }
